@@ -1,35 +1,67 @@
-version: "3"
 volumes:
   pgdata:
+    # If you want Docker to store the volume *somewhere else* on the host,
+    # uncomment the block below and change `/host/path/dbfiles`:
+    # driver: local
+    # driver_opts:
+    #   type: none
+    #   o: bind
+    #   device: /host/path/dbfiles
+
+secrets:
+  pg_sa_pw:
+    file: ./postgres_sa_password.txt  # create & modify this file before running
+
 services:
   pagila:
-    image: postgres:17
+    image: postgres:17.5-alpine        # small security footprint + current
     container_name: pagila
+    restart: unless-stopped
+    user: "70:70"                      # run as non-root user
     environment:
-      POSTGRES_PASSWORD: 123456
-      POSTGRES_USER: postgres
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_sa_pw
     volumes:
+      # Named volume keeps data between runs (see FAQ below for the host path)
+      - pgdata:/var/lib/postgresql/data
+
+      # Bind-mount read-only config that enables 'trust' network auth
+      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
+
+      # use special directory 'docker-entrypoint-initdb.d' in the official PostgreSQL image that runs any
+      #  .sql, .sql.gz, or .sh files in alpha order when the container starts with an empty database.
+      # Baseline db and schema (1a, 1b) >> ordinary relational data (2) >> jsonb data from compressed backups (3)
       - ./pagila-schema.sql:/docker-entrypoint-initdb.d/1-pagila-schema.sql
       - ./pagila-schema-jsonb.sql:/docker-entrypoint-initdb.d/1-pagila-schema-jsonb.sql
       - ./pagila-data.sql:/docker-entrypoint-initdb.d/2-pagila-data.sql
       - ./restore-pagila-data-jsonb.sh:/docker-entrypoint-initdb.d/3-restore-pagila-data-jsonb.sh
       - ./pagila-data-yum-jsonb.backup:/docker-entrypoint-initdb.d/pagila-data-yum-jsonb.backup
       - ./pagila-data-apt-jsonb.backup:/docker-entrypoint-initdb.d/pagila-data-apt-jsonb.backup
-      - pgdata:/var/lib/postgresql/data
-    expose:
-      - 5432
+
+    # Only allow local host access, avail to all services on same docker network
     ports:
-      - 5432:5432
-  pgadmin:
-    container_name: pgadmin4
-    image: dpage/pgadmin4
-    restart: always
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: root
-    volumes:
-      - "./pgadmin/pgadmin_servers.json:/pgadmin4/servers.json"
-      - "./pgadmin/pgadmin_pass:/pgadmin4/pass"
-    ports:
-      - "5050:80"
-   
+      - "127.0.0.1:5432:5432"
+
+    # Tell Postgres to use our custom security configs
+    command: >
+      postgres -c 'config_file=/etc/postgresql/postgresql.conf'
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d pagila"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # pgadmin:
+  #   container_name: pgadmin4
+  #   image: dpage/pgadmin4
+  #   restart: always
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: admin@admin.com
+  #     PGADMIN_DEFAULT_PASSWORD: root
+  #   volumes:
+  #     - "./pgadmin/pgadmin_servers.json:/pgadmin4/servers.json"
+  #     - "./pgadmin/pgadmin_pass:/pgadmin4/pass"
+  #   ports:
+  #     - "5050:80"
