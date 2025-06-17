@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Pagila Demo",
+      "Group": "Demo",
+      "Host": "127.0.0.1",
+      "Port": 5432,
+      "MaintenanceDB": "admin",
+      "Username": "admin",
+      "SSLMode": "prefer"
+    }
+  }
+}
