@@ -18,16 +18,17 @@ services:
     container_name: pagila
     restart: unless-stopped
     user: "70:70"                      # run as non-root user
+
+    secrets:
+      - pg_sa_pw
+
     environment:
-      POSTGRES_USER: admin
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD_FILE: /run/secrets/pg_sa_pw
+    
     volumes:
       # Named volume keeps data between runs (see FAQ below for the host path)
       - pgdata:/var/lib/postgresql/data
-
-      # Bind-mount read-only config that enables 'trust' network auth
-      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
-      - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
 
       # use special directory 'docker-entrypoint-initdb.d' in the official PostgreSQL image that runs any
       #  .sql, .sql.gz, or .sh files in alpha order when the container starts with an empty database.
@@ -39,6 +40,10 @@ services:
       - ./pagila-data-yum-jsonb.backup:/docker-entrypoint-initdb.d/pagila-data-yum-jsonb.backup
       - ./pagila-data-apt-jsonb.backup:/docker-entrypoint-initdb.d/pagila-data-apt-jsonb.backup
 
+      # Bind-mount read-only config that enables 'trust' network auth
+      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
+
     # Only allow local host access, avail to all services on same docker network
     ports:
       - "127.0.0.1:5432:5432"
@@ -48,10 +53,11 @@ services:
       postgres -c 'config_file=/etc/postgresql/postgresql.conf'
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d pagila"]
-      interval: 15s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pagila"]
+      interval: 30s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 120s  # Give time for initialization
 
   # pgadmin:
   #   container_name: pgadmin4
