@@ -1,6 +1,4 @@
---
--- PostgreSQL database dump
---
+SELECT 'Starting jsonb schema deploy: pagila-schema-jsonb.sql at ' || NOW() as status;
 
 -- Dumped from database version 12.11
 -- Dumped by pg_dump version 15beta2
@@ -74,7 +72,4 @@ ALTER TABLE public.packages_yum_postgresql_org ALTER COLUMN id ADD GENERATED ALW
 );
 
 
---
--- PostgreSQL database dump complete
---
-
+SELECT 'Completed jsonb schema deploy: pagila-schema-jsonb.sql at ' || NOW() as status;

@@ -1,6 +1,4 @@
---
--- PostgreSQL database dump
---
+SELECT 'Starting schema deploy: pagila-schema.sql at ' || NOW() as status;
 
 -- Dumped from database version 12.11
 -- Dumped by pg_dump version 15beta2
@@ -1836,7 +1834,5 @@ REVOKE USAGE ON SCHEMA public FROM PUBLIC;
 GRANT ALL ON SCHEMA public TO PUBLIC;
 
 
---
--- PostgreSQL database dump complete
---
-
+SELECT 'Completed Pagila schema deploy: pagila-schema.sql at ' || NOW() as status;
+-- PERFORM pg_sleep(0.1);  -- Small delay to ensure output is flushed

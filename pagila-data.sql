@@ -1,6 +1,4 @@
---
--- PostgreSQL database dump
---
+SELECT 'Starting Pagila database load: pagila-data.sql at ' || NOW() as status;
 
 -- Dumped from database version 12.11
 -- Dumped by pg_dump version 15beta2
@@ -49911,6 +49909,4 @@ SELECT pg_catalog.setval('public.staff_staff_id_seq', 1500, true);
 SELECT pg_catalog.setval('public.store_store_id_seq', 500, true);
 
 
---
--- PostgreSQL database dump complete
---
+SELECT 'Completed Pagila database load: pagila-data.sql at ' || NOW() as status;
