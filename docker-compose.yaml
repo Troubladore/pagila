@@ -24,6 +24,7 @@ services:
 
     environment:
       POSTGRES_USER: postgres
+      POSTGRES_DB: pagila
       POSTGRES_PASSWORD_FILE: /run/secrets/pg_sa_pw
     
     volumes:
@@ -34,11 +35,11 @@ services:
       #  .sql, .sql.gz, or .sh files in alpha order when the container starts with an empty database.
       # Baseline db and schema (1a, 1b) >> ordinary relational data (2) >> jsonb data from compressed backups (3)
       - ./pagila-schema.sql:/docker-entrypoint-initdb.d/1-pagila-schema.sql
-      - ./pagila-schema-jsonb.sql:/docker-entrypoint-initdb.d/1-pagila-schema-jsonb.sql
-      - ./pagila-data.sql:/docker-entrypoint-initdb.d/2-pagila-data.sql
-      - ./restore-pagila-data-jsonb.sh:/docker-entrypoint-initdb.d/3-restore-pagila-data-jsonb.sh
-      - ./pagila-data-yum-jsonb.backup:/docker-entrypoint-initdb.d/pagila-data-yum-jsonb.backup
-      - ./pagila-data-apt-jsonb.backup:/docker-entrypoint-initdb.d/pagila-data-apt-jsonb.backup
+      - ./pagila-schema-jsonb.sql:/docker-entrypoint-initdb.d/2-pagila-schema-jsonb.sql
+      - ./pagila-data.sql:/docker-entrypoint-initdb.d/3-pagila-data.sql
+      # - ./restore-pagila-data-jsonb.sql:/docker-entrypoint-initdb.d/4-restore-pagila-data-jsonb.sql
+      # - ./pagila-data-yum-jsonb.backup:/docker-entrypoint-initdb.d/pagila-data-yum-jsonb.backup
+      # - ./pagila-data-apt-jsonb.backup:/docker-entrypoint-initdb.d/pagila-data-apt-jsonb.backup
 
       # Bind-mount read-only config that enables 'trust' network auth
       - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
@@ -53,11 +54,48 @@ services:
       postgres -c 'config_file=/etc/postgresql/postgresql.conf'
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d pagila"]
-      interval: 30s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pagila && psql -U postgres -d pagila -c 'SELECT 1'"]
+      interval: 5s
       timeout: 5s
       retries: 10
-      start_period: 120s  # Give time for initialization
+      start_period: 60s
+
+
+  # The reason a wait loop is needed is because the socket test above will succeed,
+  # whereas TCP connection below will take longer
+  pagila-jsonb-restore:
+    image: postgres:17.5-alpine
+    container_name: pagila-jsonb-restore
+    depends_on:
+      pagila:
+        condition: service_healthy
+    volumes:
+      - ./pagila-data-apt-jsonb.backup:/backups/pagila-data-apt-jsonb.backup:ro
+      - ./pagila-data-yum-jsonb.backup:/backups/pagila-data-yum-jsonb.backup:ro
+    command: >
+      sh -c "
+        echo 'Starting JSONB data restoration...' &&
+        echo 'Waiting for database to be fully ready...' &&
+        for i in 1 2 3 4 5 6 7 8 9 10; do
+          if pg_isready -h pagila -U postgres -d pagila 2>/dev/null; then
+            echo 'Database is ready!'
+            break
+          fi
+          echo 'Waiting for database... attempt' \$$i
+          sleep 3
+        done &&
+        echo 'Testing connection...' &&
+        psql -h pagila -U postgres -d pagila -c 'SELECT 1' &&
+        echo 'Restoring APT JSONB data...' &&
+        pg_restore -v -h pagila -U postgres -d pagila /backups/pagila-data-apt-jsonb.backup &&
+        echo 'APT JSONB restore completed' &&
+        echo 'Restoring YUM JSONB data...' &&
+        pg_restore -v -h pagila -U postgres -d pagila /backups/pagila-data-yum-jsonb.backup &&
+        echo 'YUM JSONB restore completed' &&
+        echo 'All JSONB data restored successfully'
+      "
+    restart: "no"  # Run once and exit
+
 
   # pgadmin:
   #   container_name: pgadmin4
