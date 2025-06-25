@@ -59,7 +59,7 @@ def main(num_rows, batch_size, concurrency):
     pool.close()
     pool.join()
     spark.stop()
-
+ 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate and insert random data into PostgreSQL.")
     parser.add_argument('--num_rows', type=int, default=5000000, help='Total number of rows to generate')

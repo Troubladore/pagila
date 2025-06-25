@@ -5,3 +5,4 @@ CREATE TABLE IF NOT EXISTS stress_test_data (
     amount NUMERIC(5,2),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+ 
