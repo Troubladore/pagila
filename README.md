@@ -1,4 +1,35 @@
-# Pagila
+# Pagila - Platform Test Database
+
+**Fork of:** [devrimgunduz/pagila](https://github.com/devrimgunduz/pagila)
+**Purpose:** PostgreSQL sample database integrated with Airflow Data Platform
+**License:** PostgreSQL License (same as upstream)
+
+---
+
+## Quick Start (Platform Integration)
+
+**For airflow-data-platform users:**
+
+```bash
+# Automated setup via platform script
+cd ~/repos/airflow-data-platform/platform-bootstrap
+make setup-pagila
+
+# Or manual setup
+cd ~/repos
+git clone https://github.com/Troubladore/pagila.git
+cd pagila
+make start
+```
+
+**Pagila is now available to:**
+- OpenMetadata ingestion DAGs (as `pagila-postgres:5432`)
+- Astronomer Airflow projects (on `platform_network`)
+- Direct host access (at `localhost:5432`)
+
+---
+
+## About Pagila
 
 Pagila started as a port of the [Sakila](https://dev.mysql.com/doc/sakila/en/) example database available for MySQL, which was
 originally developed by Mike Hillyer of the MySQL AB documentation team. It
@@ -209,18 +240,59 @@ pagila=#
 ```
 ````
 
+## Platform Integration Features
+
+This fork includes enhancements for [airflow-data-platform](https://github.com/Troubladore/airflow-data-platform) integration:
+
+### Corporate Environment Support
+
+**Uses `.env` for corporate image configuration:**
+
+```bash
+# Create .env from template
+cp .env.example .env
+
+# For corporate Artifactory
+IMAGE_POSTGRES=artifactory.company.com/docker-remote/library/postgres:15
+PAGILA_PORT=5432
+```
+
+**Then:**
+```bash
+docker login artifactory.company.com
+make start
+```
+
+### Network Integration
+
+- **Joins `platform_network`** - Accessible from Airflow, OpenMetadata, other platform services
+- **Container name:** `pagila-postgres` (consistent with platform naming)
+- **Host access:** `localhost:5432` (or custom port via `.env`)
+
+### Makefile Commands
+
+```bash
+make start    # Start pagila
+make stop     # Stop pagila
+make status   # Check status
+make test     # Validate setup
+make reset    # Clean reinstall
+```
+
+---
+
 ## CREATE DATABASE ON [DOCKER-COMPOSE](https://docs.docker.com/compose/)
 
 1. Run:
 
 ```
-docker-compose up
+docker compose up
 ```
 
 2. Done! Just use:
 
 ```
-docker exec -it pagila psql -U postgres
+docker exec -it pagila-postgres psql -U postgres
 ```
 
 ```

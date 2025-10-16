@@ -14,10 +14,12 @@ secrets:
 
 services:
   pagila:
-    image: postgres:17.5-alpine        # small security footprint + current
-    container_name: pagila
+    # Corporate Environment Support: Uses IMAGE_POSTGRES from .env
+    # Default: postgres:15 (standard for platform compatibility)
+    # Corporate: Set in .env to use Artifactory mirror
+    image: ${IMAGE_POSTGRES:-postgres:15}
+    container_name: pagila-postgres    # Renamed for platform consistency
     restart: unless-stopped
-    user: "70:70"                      # run as non-root user
 
     secrets:
       - pg_sa_pw
@@ -45,9 +47,15 @@ services:
       - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
       - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
 
-    # Only allow local host access, avail to all services on same docker network
+    # Network Configuration
+    # - Joins platform_network for integration with Airflow Data Platform
+    # - Also exposed on localhost for direct host access
+    networks:
+      - platform-net
+      - default
+
     ports:
-      - "127.0.0.1:5432:5432"
+      - "${PAGILA_PORT:-5432}:5432"  # Configurable port (respects .env)
 
     # Tell Postgres to use our custom security configs
     command: >
@@ -64,11 +72,13 @@ services:
   # The reason a wait loop is needed is because the socket test above will succeed,
   # whereas TCP connection below will take longer
   pagila-jsonb-restore:
-    image: postgres:17.5-alpine
+    image: ${IMAGE_POSTGRES:-postgres:15}  # Use same image as main service
     container_name: pagila-jsonb-restore
     depends_on:
       pagila:
         condition: service_healthy
+    networks:
+      - default
     volumes:
       - ./pagila-data-apt-jsonb.backup:/backups/pagila-data-apt-jsonb.backup:ro
       - ./pagila-data-yum-jsonb.backup:/backups/pagila-data-yum-jsonb.backup:ro
@@ -109,3 +119,18 @@ services:
   #     - "./pgadmin/pgadmin_pass:/pgadmin4/pass"
   #   ports:
   #     - "5050:80"
+
+# ==========================================
+# Networks
+# ==========================================
+
+networks:
+  # Platform network (external - managed by airflow-data-platform)
+  # Enables integration with Kerberos, OpenMetadata, and other platform services
+  platform-net:
+    external: true
+    name: platform_network
+
+  # Default network (internal - for pagila services only)
+  default:
+    name: pagila_network
