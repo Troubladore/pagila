@@ -15,9 +15,9 @@ secrets:
 services:
   pagila:
     # Corporate Environment Support: Uses IMAGE_POSTGRES from .env
-    # Default: postgres:15 (standard for platform compatibility)
+    # Default: postgres:17.5-alpine (current version, small security footprint)
     # Corporate: Set in .env to use Artifactory mirror
-    image: ${IMAGE_POSTGRES:-postgres:15}
+    image: ${IMAGE_POSTGRES:-postgres:17.5-alpine}
     container_name: pagila-postgres    # Renamed for platform consistency
     restart: unless-stopped
 
@@ -49,13 +49,19 @@ services:
 
     # Network Configuration
     # - Joins platform_network for integration with Airflow Data Platform
-    # - Also exposed on localhost for direct host access
+    # - Also exposed on localhost ONLY (127.0.0.1) for direct host access
+    # - NOT exposed to external networks (security!)
     networks:
       - platform-net
       - default
 
     ports:
-      - "${PAGILA_PORT:-5432}:5432"  # Configurable port (respects .env)
+      # Bind to localhost only (127.0.0.1), configurable port for conflicts
+      # Access paths:
+      #   - From host: localhost:${PAGILA_PORT}
+      #   - From platform: pagila-postgres:5432
+      #   - From external: BLOCKED (127.0.0.1 binding)
+      - "127.0.0.1:${PAGILA_PORT:-5432}:5432"
 
     # Tell Postgres to use our custom security configs
     command: >
@@ -72,7 +78,7 @@ services:
   # The reason a wait loop is needed is because the socket test above will succeed,
   # whereas TCP connection below will take longer
   pagila-jsonb-restore:
-    image: ${IMAGE_POSTGRES:-postgres:15}  # Use same image as main service
+    image: ${IMAGE_POSTGRES:-postgres:17.5-alpine}  # Use same image as main service
     container_name: pagila-jsonb-restore
     depends_on:
       pagila:
