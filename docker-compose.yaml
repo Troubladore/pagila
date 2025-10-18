@@ -8,10 +8,6 @@ volumes:
     #   o: bind
     #   device: /host/path/dbfiles
 
-secrets:
-  pg_sa_pw:
-    file: ./postgres_sa_password.txt  # create & modify this file before running
-
 services:
   pagila:
     # Corporate Environment Support: Uses IMAGE_POSTGRES from .env
@@ -21,13 +17,13 @@ services:
     container_name: pagila-postgres    # Renamed for platform consistency
     restart: unless-stopped
 
-    secrets:
-      - pg_sa_pw
-
     environment:
       POSTGRES_USER: postgres
       POSTGRES_DB: pagila
-      POSTGRES_PASSWORD_FILE: /run/secrets/pg_sa_pw
+      # Password from .env (consistent with platform pattern)
+      # Note: Not actually used with trust authentication (pg_hba.conf)
+      #       Just suppresses docker-compose warnings
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     
     volumes:
       # Named volume keeps data between runs (see FAQ below for the host path)
