@@ -35,9 +35,9 @@ services:
       - ./pagila-schema.sql:/docker-entrypoint-initdb.d/1-pagila-schema.sql
       - ./pagila-schema-jsonb.sql:/docker-entrypoint-initdb.d/2-pagila-schema-jsonb.sql
       - ./pagila-data.sql:/docker-entrypoint-initdb.d/3-pagila-data.sql
-      # - ./restore-pagila-data-jsonb.sql:/docker-entrypoint-initdb.d/4-restore-pagila-data-jsonb.sql
-      # - ./pagila-data-yum-jsonb.backup:/docker-entrypoint-initdb.d/pagila-data-yum-jsonb.backup
-      # - ./pagila-data-apt-jsonb.backup:/docker-entrypoint-initdb.d/pagila-data-apt-jsonb.backup
+      - ./restore-pagila-data-jsonb.sql:/docker-entrypoint-initdb.d/4-restore-pagila-data-jsonb.sql
+      - ./pagila-data-yum-jsonb.backup:/docker-entrypoint-initdb.d/pagila-data-yum-jsonb.backup
+      - ./pagila-data-apt-jsonb.backup:/docker-entrypoint-initdb.d/pagila-data-apt-jsonb.backup
 
       # Bind-mount read-only config that enables 'trust' network auth
       - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
