@@ -27,21 +27,47 @@ services:
     
     volumes:
       # Named volume keeps data between runs (see FAQ below for the host path)
-      - pgdata:/var/lib/postgresql/data
+      - type: volume
+        source: pgdata
+        target: /var/lib/postgresql/data
 
       # use special directory 'docker-entrypoint-initdb.d' in the official PostgreSQL image that runs any
       #  .sql, .sql.gz, or .sh files in alpha order when the container starts with an empty database.
       # Baseline db and schema (1a, 1b) >> ordinary relational data (2) >> jsonb data from compressed backups (3)
-      - ./pagila-schema.sql:/docker-entrypoint-initdb.d/1-pagila-schema.sql
-      - ./pagila-schema-jsonb.sql:/docker-entrypoint-initdb.d/2-pagila-schema-jsonb.sql
-      - ./pagila-data.sql:/docker-entrypoint-initdb.d/3-pagila-data.sql
-      - ./restore-pagila-data-jsonb.sql:/docker-entrypoint-initdb.d/4-restore-pagila-data-jsonb.sql
-      - ./pagila-data-yum-jsonb.backup:/docker-entrypoint-initdb.d/pagila-data-yum-jsonb.backup
-      - ./pagila-data-apt-jsonb.backup:/docker-entrypoint-initdb.d/pagila-data-apt-jsonb.backup
+      - type: bind
+        source: ./pagila-schema.sql
+        target: /docker-entrypoint-initdb.d/1-pagila-schema.sql
+        read_only: false
+      - type: bind
+        source: ./pagila-schema-jsonb.sql
+        target: /docker-entrypoint-initdb.d/2-pagila-schema-jsonb.sql
+        read_only: false
+      - type: bind
+        source: ./pagila-data.sql
+        target: /docker-entrypoint-initdb.d/3-pagila-data.sql
+        read_only: false
+      - type: bind
+        source: ./restore-pagila-data-jsonb.sql
+        target: /docker-entrypoint-initdb.d/4-restore-pagila-data-jsonb.sql
+        read_only: false
+      - type: bind
+        source: ./pagila-data-yum-jsonb.backup
+        target: /docker-entrypoint-initdb.d/pagila-data-yum-jsonb.backup
+        read_only: false
+      - type: bind
+        source: ./pagila-data-apt-jsonb.backup
+        target: /docker-entrypoint-initdb.d/pagila-data-apt-jsonb.backup
+        read_only: false
 
       # Bind-mount read-only config that enables 'trust' network auth
-      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
-      - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - type: bind
+        source: ./pg_hba.conf
+        target: /etc/postgresql/pg_hba.conf
+        read_only: true
+      - type: bind
+        source: ./postgresql.conf
+        target: /etc/postgresql/postgresql.conf
+        read_only: true
 
     # Network Configuration
     # - Joins platform_network for integration with Airflow Data Platform
@@ -60,8 +86,7 @@ services:
       - "127.0.0.1:${PAGILA_PORT:-5432}:5432"
 
     # Tell Postgres to use our custom security configs
-    command: >
-      postgres -c 'config_file=/etc/postgresql/postgresql.conf'
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d pagila && psql -U postgres -d pagila -c 'SELECT 1'"]
@@ -82,31 +107,38 @@ services:
     networks:
       - default
     volumes:
-      - ./pagila-data-apt-jsonb.backup:/backups/pagila-data-apt-jsonb.backup:ro
-      - ./pagila-data-yum-jsonb.backup:/backups/pagila-data-yum-jsonb.backup:ro
-    command: >
-      sh -c "
-        echo 'Starting JSONB data restoration...' &&
-        echo 'Waiting for database to be fully ready...' &&
-        for i in 1 2 3 4 5 6 7 8 9 10; do
-          if pg_isready -h pagila -U postgres -d pagila 2>/dev/null; then
-            echo 'Database is ready!'
-            break
-          fi
-          echo 'Waiting for database... attempt' \$$i
-          sleep 3
-        done &&
-        echo 'Testing connection...' &&
-        psql -h pagila -U postgres -d pagila -c 'SELECT 1' &&
-        echo 'Restoring APT JSONB data...' &&
-        pg_restore -v -h pagila -U postgres -d pagila /backups/pagila-data-apt-jsonb.backup &&
-        echo 'APT JSONB restore completed' &&
-        echo 'Restoring YUM JSONB data...' &&
-        pg_restore -v -h pagila -U postgres -d pagila /backups/pagila-data-yum-jsonb.backup &&
-        echo 'YUM JSONB restore completed' &&
-        echo 'All JSONB data restored successfully'
-      "
-    restart: "no"  # Run once and exit
+      - type: bind
+        source: ./pagila-data-apt-jsonb.backup
+        target: /backups/pagila-data-apt-jsonb.backup
+        read_only: true
+      - type: bind
+        source: ./pagila-data-yum-jsonb.backup
+        target: /backups/pagila-data-yum-jsonb.backup
+        read_only: true
+    command: [
+      "sh", "-c",
+      "echo 'Starting JSONB data restoration...' && \
+       echo 'Waiting for database to be fully ready...' && \
+       for i in 1 2 3 4 5 6 7 8 9 10; do \
+         if pg_isready -h pagila -U postgres -d pagila 2>/dev/null; then \
+           echo 'Database is ready!' && break; \
+         fi; \
+         echo \"Waiting for database... attempt $$i\"; \
+         sleep 3; \
+       done && \
+       echo 'Testing connection...' && \
+       psql -h pagila -U postgres -d pagila -c 'SELECT 1' && \
+       echo 'Restoring APT JSONB data...' && \
+       pg_restore -v -h pagila -U postgres -d pagila /backups/pagila-data-apt-jsonb.backup && \
+       echo 'APT JSONB restore completed' && \
+       echo 'Restoring YUM JSONB data...' && \
+       pg_restore -v -h pagila -U postgres -d pagila /backups/pagila-data-yum-jsonb.backup && \
+       echo 'YUM JSONB restore completed' && \
+       echo 'All JSONB data restored successfully'"
+    ]
+    deploy:
+      restart_policy:
+        condition: none  # Run once and exit
 
 
   # pgadmin:
