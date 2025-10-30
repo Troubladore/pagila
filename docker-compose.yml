@@ -14,6 +14,7 @@ services:
     # Default: postgres:17.5-alpine (current version, small security footprint)
     # Corporate: Set in .env to use Artifactory mirror
     image: ${IMAGE_POSTGRES:-postgres:17.5-alpine}
+    pull_policy: missing  # Only pull if image doesn't exist locally (never re-pull)
     container_name: pagila-postgres    # Renamed for platform consistency
     restart: unless-stopped
 
@@ -100,6 +101,7 @@ services:
   # whereas TCP connection below will take longer
   pagila-jsonb-restore:
     image: ${IMAGE_POSTGRES:-postgres:17.5-alpine}  # Use same image as main service
+    pull_policy: missing  # Only pull if image doesn't exist locally (never re-pull)
     container_name: pagila-jsonb-restore
     depends_on:
       pagila:
